@@ -14,6 +14,7 @@ A modular Go-based API gateway that proxies requests to upstream services. Canar
 - **Request Throttling**: Maximum concurrent request limits
 - **Automatic Retries**: Exponential backoff for failed upstream requests
 - **Health Checks**: Simple endpoint for load balancer probes
+- **Authentication**: Secure endpoints by validating user credentials/JWT tokens before proxying
 - **Modular Architecture**: Clean separation of concerns for easy maintenance
 
 ## Project Structure
@@ -254,4 +255,5 @@ docker run -p 80:80 api-gateway
 - Separate limits for global and per-IP
 - Automatic cleanup of idle IP buckets
 - Returns `429 Too Many Requests` with `Retry-After` header
+
 
