@@ -14,6 +14,7 @@ A modular Go-based API gateway that proxies requests to upstream services. Canar
 - **Request Throttling**: Maximum concurrent request limits
 - **Automatic Retries**: Exponential backoff for failed upstream requests
 - **Health Checks**: Simple endpoint for load balancer probes
+- **Authentication**: Secure endpoints by validating user credentials/JWT tokens before proxying
 - **Modular Architecture**: Clean separation of concerns for easy maintenance
 
 ## Project Structure
@@ -44,10 +45,6 @@ All configuration is managed through environment variables with sensible default
 
 ### Server Configuration
 - **`PORT`**: Server listening port (default: `80`)
-
-### Upstream Services
-- **`IAM_SERVICE_URL`**: IAM service URL (default: `https://deve-iam-service-aca.greenwave-80f4ae85.uksouth.azurecontainerapps.io`)
-- **`ONBOARDING_TARGET_URL`**: Onboarding service URL (default: `https://deve-user-onboarding-aca.greenwave-80f4ae85.uksouth.azurecontainerapps.io`)
 
 ### Throttling
 - **`MAX_IN_FLIGHT`**: Maximum concurrent requests (default: `256`)
@@ -254,4 +251,6 @@ docker run -p 80:80 api-gateway
 - Separate limits for global and per-IP
 - Automatic cleanup of idle IP buckets
 - Returns `429 Too Many Requests` with `Retry-After` header
+
+
 
