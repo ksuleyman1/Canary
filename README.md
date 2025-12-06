@@ -33,12 +33,6 @@ API_Gateway_ACA/
 │       └── router.go               # Route registration and management
 ```
 
-## Routing
-
-- **`/`**: Returns `200 OK` with `"ok"` response (health check endpoint)
-- **`/api/auth/*`**: Routes to IAM service (e.g., `/api/auth/login` → IAM service `/api/auth/login`)
-- **`/api/onboarding/*`**: Routes to onboarding service
-
 ## Configuration
 
 All configuration is managed through environment variables with sensible defaults:
@@ -251,6 +245,7 @@ docker run -p 80:80 api-gateway
 - Separate limits for global and per-IP
 - Automatic cleanup of idle IP buckets
 - Returns `429 Too Many Requests` with `Retry-After` header
+
 
 
 
