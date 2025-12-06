@@ -35,9 +35,8 @@ API_Gateway_ACA/
 ## Routing
 
 - **`/`**: Returns `200 OK` with `"ok"` response (health check endpoint)
-- **`/api/auth/*`**: Routes to IAM service (e.g., `/api/auth/login` → IAM service `/auth/login`)
+- **`/api/auth/*`**: Routes to IAM service (e.g., `/api/auth/login` → IAM service `/api/auth/login`)
 - **`/api/onboarding/*`**: Routes to onboarding service
-- All `/api/*` paths have the `/api` prefix stripped before forwarding to upstream
 
 ## Configuration
 
@@ -47,7 +46,7 @@ All configuration is managed through environment variables with sensible default
 - **`PORT`**: Server listening port (default: `80`)
 
 ### Upstream Services
-- **`AUTH_TARGET_URL`**: IAM service URL (default: `https://deve-iam-service-aca.greenwave-80f4ae85.uksouth.azurecontainerapps.io`)
+- **`IAM_SERVICE_URL`**: IAM service URL (default: `https://deve-iam-service-aca.greenwave-80f4ae85.uksouth.azurecontainerapps.io`)
 - **`ONBOARDING_TARGET_URL`**: Onboarding service URL (default: `https://deve-user-onboarding-aca.greenwave-80f4ae85.uksouth.azurecontainerapps.io`)
 
 ### Throttling

@@ -26,7 +26,7 @@ func main() {
 	// Parse upstream URLs
 	authTargetURL, err := url.Parse(cfg.Upstream.AuthURL)
 	if err != nil {
-		log.Fatalf("invalid AUTH_TARGET_URL: %v", err)
+		log.Fatalf("invalid IAM_SERVICE_URL: %v", err)
 	}
 
 	onboardingURL, err := url.Parse(cfg.Upstream.OnboardingURL)

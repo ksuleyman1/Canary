@@ -63,8 +63,8 @@ func Load() (*Config, error) {
 			IdleTimeout:       120 * time.Second,
 		},
 		Upstream: UpstreamConfig{
-			AuthURL:       env("AUTH_TARGET_URL", "https://deve-iam-service-aca.greenwave-80f4ae85.uksouth.azurecontainerapps.io"),
-			OnboardingURL: env("ONBOARDING_TARGET_URL", "https://deve-user-onboarding-aca.greenwave-80f4ae85.uksouth.azurecontainerapps.io"),
+			AuthURL:       env("IAM_SERVICE_URL", "https://exampleservice1.com"),
+			OnboardingURL: env("ONBOARDING_TARGET_URL", "https://exampleservice2.com"),
 		},
 		Throttle: ThrottleConfig{
 			MaxInFlight: mustInt(env("MAX_IN_FLIGHT", "256")),

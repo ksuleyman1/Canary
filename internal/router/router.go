@@ -47,6 +47,12 @@ func (rt *Router) handleRoot(w http.ResponseWriter, r *http.Request) {
 // 1. Add a new if block with strings.HasPrefix check
 // 2. Call the appropriate proxy's ServeHTTP method
 func (rt *Router) handleAPI(w http.ResponseWriter, r *http.Request) {
+	// Uncomment to enable authentication for all API routes
+	// if !rt.authenticateRequest(r) {
+	// 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	// 	return
+	// }
+
 	// Route /api/auth/* to IAM service
 	// Examples: /api/auth/login, /api/auth/signup, /api/auth/admin/users
 	if strings.HasPrefix(r.URL.Path, "/api/auth") {
@@ -69,3 +75,51 @@ func (rt *Router) handleAPI(w http.ResponseWriter, r *http.Request) {
 func (rt *Router) Handler() http.Handler {
 	return rt.mux
 }
+
+// authenticateRequest validates the user's authentication token
+// Uncomment this function to enable authentication before proxying
+// func (rt *Router) authenticateRequest(r *http.Request) bool {
+// 	// Extract token from Authorization header
+// 	authHeader := r.Header.Get("Authorization")
+// 	if authHeader == "" {
+// 		return false
+// 	}
+//
+// 	// Expected format: "Bearer <token>"
+// 	const bearerPrefix = "Bearer "
+// 	if !strings.HasPrefix(authHeader, bearerPrefix) {
+// 		return false
+// 	}
+//
+// 	token := strings.TrimPrefix(authHeader, bearerPrefix)
+// 	if token == "" {
+// 		return false
+// 	}
+//
+// 	// Example: Validate token by calling IAM service
+// 	// Make HTTP request to IAM service's token validation endpoint
+// 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+// 	defer cancel()
+//
+// 	// Construct validation request
+// 	// Assuming IAM service has a /api/auth/validate endpoint
+// 	validationURL := "https://your-iam-service.com/api/auth/validate"
+// 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, validationURL, nil)
+// 	if err != nil {
+// 		return false
+// 	}
+//
+// 	// Forward the Authorization header to IAM service
+// 	req.Header.Set("Authorization", authHeader)
+//
+// 	// Send request to IAM service
+// 	client := &http.Client{Timeout: 2 * time.Second}
+// 	resp, err := client.Do(req)
+// 	if err != nil {
+// 		return false
+// 	}
+// 	defer resp.Body.Close()
+//
+// 	// Token is valid if IAM service returns 200 OK
+// 	return resp.StatusCode == http.StatusOK
+// }

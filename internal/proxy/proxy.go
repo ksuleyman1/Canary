@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 	"time"
 
 	"apigateway/internal/middleware"
@@ -56,17 +55,9 @@ func NewReverseProxy(target *url.URL, cfg Config) *httputil.ReverseProxy {
 	}
 
 	director := func(r *http.Request) {
-		// Strip the leading "/api" prefix
-		// e.g. /api/auth/health -> /auth/health
-		stripped := strings.TrimPrefix(r.URL.Path, "/api")
-		if stripped == "" {
-			stripped = "/"
-		}
-
-		// Set upstream target scheme/host and rewritten path
+		// Set upstream target scheme/host
 		r.URL.Scheme = target.Scheme
 		r.URL.Host = target.Host
-		r.URL.Path = stripped
 
 		// Set Host header to upstream host
 		r.Host = target.Host
