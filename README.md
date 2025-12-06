@@ -5,7 +5,7 @@
 
 # Canary
 
-A modular Go-based API gateway that proxies requests to upstream services with built-in throttling, rate-limiting, retries, gzip compression, and comprehensive request handling.
+A modular Go-based API gateway that proxies requests to upstream services. Canary comes packaged with built-in throttling, rate-limiting, retries, gzip compression, and comprehensive request handling out-of-the-box.
 
 ## Features
 
@@ -224,3 +224,4 @@ docker run -p 80:80 api-gateway
 - Separate limits for global and per-IP
 - Automatic cleanup of idle IP buckets
 - Returns `429 Too Many Requests` with `Retry-After` header
+
