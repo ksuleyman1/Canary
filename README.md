@@ -5,7 +5,7 @@
 
 # Canary
 
-A modular Go-based API gateway that proxies requests to upstream services. Canary comes packaged with built-in throttling, rate-limiting, retries, gzip compression, and comprehensive request handling out-of-the-box.
+A modular Go-based API gateway that proxies requests to upstream services. Canary comes packaged with built-in throttling, rate-limiting, retries, auth, gzip compression, and comprehensive request handling out-of-the-box.
 
 ## Features
 
@@ -142,6 +142,36 @@ if strings.HasPrefix(r.URL.Path, "/api/newservice") {
     return
 }
 ```
+
+## Enabling Authentication
+
+Canary includes a commented-out authentication function that can validate user tokens before proxying requests to upstream services.
+
+### To Enable Authentication:
+
+1. Edit `internal/router/router.go`
+2. Uncomment the `authenticateRequest` function at the bottom of the file
+3. Uncomment the authentication check in the `handleAPI` function:
+
+```go
+func (rt *Router) handleAPI(w http.ResponseWriter, r *http.Request) {
+    // Uncomment these lines:
+    if !rt.authenticateRequest(r) {
+        http.Error(w, "Unauthorized", http.StatusUnauthorized)
+        return
+    }
+    // ... rest of routing logic
+}
+```
+
+4. Update the validation URL in `authenticateRequest` to point to your IAM service's token validation endpoint
+
+The included example validates tokens by:
+- Extracting the `Authorization: Bearer <token>` header
+- Making an HTTP request to your IAM service's validation endpoint
+- Forwarding the token and checking for a `200 OK` response
+
+You can customize this to use JWT validation, Redis caching, or any other authentication method.
 
 ## Customizing Behavior
 
