@@ -136,7 +136,7 @@ if strings.HasPrefix(r.URL.Path, "/api/newservice") {
 
 ## Enabling Authentication
 
-Canary includes a commented-out authentication function that can validate user tokens before proxying requests to upstream services.
+Canary includes a commented-out authentication function that you could use to validate user tokens before proxying requests to upstream services.
 
 ### To Enable Authentication:
 
@@ -155,11 +155,11 @@ func (rt *Router) handleAPI(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-4. Update the validation URL in `authenticateRequest` to point to your IAM service's token validation endpoint
+4. Update the validation URL in `authenticateRequest` to point to your auth service's token validation endpoint
 
 The included example validates tokens by:
 - Extracting the `Authorization: Bearer <token>` header
-- Making an HTTP request to your IAM service's validation endpoint
+- Making an HTTP request to your auth service's validation endpoint
 - Forwarding the token and checking for a `200 OK` response
 
 You can customize this to use JWT validation, Redis caching, or any other authentication method.
@@ -245,6 +245,7 @@ docker run -p 80:80 api-gateway
 - Separate limits for global and per-IP
 - Automatic cleanup of idle IP buckets
 - Returns `429 Too Many Requests` with `Retry-After` header
+
 
 
 
