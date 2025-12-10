@@ -153,16 +153,18 @@ Canary includes a commented-out authentication function that can validate user t
 
 1. Edit `internal/router/router.go`
 2. Uncomment the `authenticateRequest` function at the bottom of the file
-3. Uncomment the authentication check in the `handleAPI` function:
+3. Add the following authentication check in the `handleAPI` function of the relevant endpoint:
 
 ```go
-func (rt *Router) handleAPI(w http.ResponseWriter, r *http.Request) {
-    // Uncomment these lines:
+if strings.HasPrefix(r.URL.Path, "/api/newservice") {
+
     if !rt.authenticateRequest(r) {
         http.Error(w, "Unauthorized", http.StatusUnauthorized)
         return
     }
-    // ... rest of routing logic
+
+    rt.newServiceProxy.ServeHTTP(w, r)
+    return
 }
 ```
 
@@ -256,4 +258,5 @@ docker run -p 80:80 api-gateway
 - Separate limits for global and per-IP
 - Automatic cleanup of idle IP buckets
 - Returns `429 Too Many Requests` with `Retry-After` header
+
 
