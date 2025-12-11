@@ -5,7 +5,7 @@
 
 # Canary
 
-Canary is a modular Go-based API gateway designed for power and simplicity. It comes packaged with built-in throttling, rate-limiting, retries, auth, gzip compression, and comprehensive request handling out-of-the-box.
+Canary is a lightweight Go-based API gateway designed for power and simplicity. It comes packaged with built-in throttling, rate-limiting, retries, auth, gzip compression, and comprehensive request handling out-of-the-box.
 
 ## Features
 
