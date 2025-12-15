@@ -38,9 +38,9 @@ func main() {
 		log.Fatalf("invalid IAM_SERVICE_URL: %v", err)
 	}
 
-	onboardingURL, err := url.Parse(cfg.Upstream.OnboardingURL)
+	exampleURL, err := url.Parse(cfg.Upstream.ExampleURL)
 	if err != nil {
-		log.Fatalf("invalid ONBOARDING_TARGET_URL: %v", err)
+		log.Fatalf("invalid EXAMPLE_TARGET_URL: %v", err)
 	}
 
 	// Create reverse proxies
@@ -51,11 +51,11 @@ func main() {
 		TargetServer: authTargetURL.Hostname(),
 	})
 
-	onboardingProxy := proxy.NewReverseProxy(onboardingURL, proxy.Config{
+	exampleProxy := proxy.NewReverseProxy(exampleURL, proxy.Config{
 		Attempts:     cfg.Retry.Attempts,
 		BaseBackoff:  cfg.Retry.BaseBackoff,
 		MaxBackoff:   cfg.Retry.MaxBackoff,
-		TargetServer: onboardingURL.Hostname(),
+		TargetServer: exampleURL.Hostname(),
 	})
 
 	// Initialize middleware
@@ -64,7 +64,7 @@ func main() {
 	perIPLimiter := middleware.NewPerKeyTokenBucket(cfg.RateLimit.PerIPRPS, cfg.RateLimit.PerIPBurst, cfg.LimiterTTL)
 
 	// Setup routes
-	rt := router.New(authProxy, onboardingProxy)
+	rt := router.New(authProxy, exampleProxy)
 	rt.RegisterRoutes()
 
 	// Build middleware chain
@@ -95,7 +95,7 @@ func main() {
 	logger.Log.Info("gateway_listening",
 		"port", cfg.Server.Port,
 		"auth_service", cfg.Upstream.AuthURL,
-		"onboarding_service", cfg.Upstream.OnboardingURL,
+		"example_service", cfg.Upstream.ExampleURL,
 	)
 	log.Fatal(srv.ListenAndServe())
 }

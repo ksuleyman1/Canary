@@ -186,7 +186,7 @@ func New(authProxy, onboardingProxy, courseProxy, newServiceProxy *httputil.Reve
 
 ```go
 // Route /api/newservice/* to new service
-if strings.HasPrefix(r.URL.Path, "/api/newservice") {
+if strings.HasPrefix(r.URL.Path, "/api/newservice") { //will proxy to https://new-service.example.com/api/newservice
     rt.newServiceProxy.ServeHTTP(w, r)
     return
 }

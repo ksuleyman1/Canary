@@ -35,8 +35,8 @@ type ServerConfig struct {
 
 // UpstreamConfig holds upstream service URLs
 type UpstreamConfig struct {
-	AuthURL       string
-	OnboardingURL string
+	AuthURL    string
+	ExampleURL string
 }
 
 // ThrottleConfig holds concurrent request limits
@@ -70,8 +70,8 @@ func Load() (*Config, error) {
 			IdleTimeout:       120 * time.Second,
 		},
 		Upstream: UpstreamConfig{
-			AuthURL:       env("IAM_SERVICE_URL", "https://exampleservice1.com"),
-			OnboardingURL: env("ONBOARDING_TARGET_URL", "https://exampleservice2.com"),
+			AuthURL:    env("IAM_SERVICE_URL", "https://exampleservice1.com"),
+			ExampleURL: env("EXAMPLE_TARGET_URL", "https://dogapi.dog/api/v2/breeds"),
 		},
 		Throttle: ThrottleConfig{
 			MaxInFlight: mustInt(env("MAX_IN_FLIGHT", "256")),

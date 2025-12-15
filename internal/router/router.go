@@ -8,17 +8,17 @@ import (
 
 // Router manages all route registrations
 type Router struct {
-	mux             *http.ServeMux
-	authProxy       *httputil.ReverseProxy
-	onboardingProxy *httputil.ReverseProxy
+	mux          *http.ServeMux
+	authProxy    *httputil.ReverseProxy
+	exampleProxy *httputil.ReverseProxy
 }
 
 // New creates a new router with the given proxies
-func New(authProxy, onboardingProxy *httputil.ReverseProxy) *Router {
+func New(authProxy, exampleProxy *httputil.ReverseProxy) *Router {
 	return &Router{
-		mux:             http.NewServeMux(),
-		authProxy:       authProxy,
-		onboardingProxy: onboardingProxy,
+		mux:          http.NewServeMux(),
+		authProxy:    authProxy,
+		exampleProxy: exampleProxy,
 	}
 }
 
@@ -60,10 +60,10 @@ func (rt *Router) handleAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Route /api/onboarding/* to onboarding service
-	// Examples: /api/onboarding/profile, /api/onboarding/setup
-	if strings.HasPrefix(r.URL.Path, "/api/onboarding") {
-		rt.onboardingProxy.ServeHTTP(w, r)
+	// Route /api/example/* to example service
+	// Examples: /api/example/timestamp
+	if strings.HasPrefix(r.URL.Path, "/api/example") {
+		rt.exampleProxy.ServeHTTP(w, r)
 		return
 	}
 
