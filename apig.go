@@ -11,6 +11,7 @@ import (
 	"net/url"
 
 	"apigateway/internal/config"
+	"apigateway/internal/logger"
 	"apigateway/internal/middleware"
 	"apigateway/internal/proxy"
 	"apigateway/internal/router"
@@ -22,6 +23,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
+
+	// Initialize structured logger
+	logger.Init(cfg.Logging.Level, cfg.Logging.Format)
+	logger.Log.Info("gateway_starting",
+		"port", cfg.Server.Port,
+		"log_level", cfg.Logging.Level,
+		"log_format", cfg.Logging.Format,
+	)
 
 	// Parse upstream URLs
 	authTargetURL, err := url.Parse(cfg.Upstream.AuthURL)
@@ -60,11 +69,13 @@ func main() {
 
 	// Build middleware chain
 	handler := middleware.WithRecover(
-		middleware.WithLogging(
-			middleware.WithGzip(
-				middleware.WithThrottle(throttle,
-					middleware.WithRateLimit(globalLimiter, perIPLimiter,
-						rt.Handler(),
+		middleware.WithRequestID(
+			middleware.WithLogging(
+				middleware.WithGzip(
+					middleware.WithThrottle(throttle,
+						middleware.WithRateLimit(globalLimiter, perIPLimiter,
+							rt.Handler(),
+						),
 					),
 				),
 			),
@@ -81,8 +92,10 @@ func main() {
 		IdleTimeout:       cfg.Server.IdleTimeout,
 	}
 
-	log.Printf("Gateway listening on :%s", cfg.Server.Port)
-	log.Printf("  Auth service: %s", cfg.Upstream.AuthURL)
-	log.Printf("  Onboarding service: %s", cfg.Upstream.OnboardingURL)
+	logger.Log.Info("gateway_listening",
+		"port", cfg.Server.Port,
+		"auth_service", cfg.Upstream.AuthURL,
+		"onboarding_service", cfg.Upstream.OnboardingURL,
+	)
 	log.Fatal(srv.ListenAndServe())
 }

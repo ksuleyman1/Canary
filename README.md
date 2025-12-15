@@ -9,12 +9,15 @@ Canary is a lightweight and easy to use API gateway written in Golang. It comes 
 
 ## Features
 
+- **Structured Logging**: Production-grade observability with slog (JSON/text formats)
+- **Request Tracing**: Automatic request ID generation and propagation
 - **Automatic Gzip Compression**: Reduces bandwidth by 60-80% for JSON/text responses
 - **Rate Limiting**: Global and per-IP token bucket rate limiting
 - **Request Throttling**: Maximum concurrent request limits
 - **Automatic Retries**: Exponential backoff for failed upstream requests
 - **Health Checks**: Simple endpoint for load balancer probes
 - **Authentication**: Secure endpoints by validating user credentials/JWT tokens before proxying
+- **Panic Recovery**: Graceful error handling with stack traces
 - **Modular Architecture**: Clean separation of concerns for easy maintenance
 
 ## Project Structure
@@ -25,6 +28,8 @@ API_Gateway_ACA/
 ├── internal/
 │   ├── config/
 │   │   └── config.go               # Configuration management
+│   ├── logger/
+│   │   └── logger.go               # Structured logging with slog
 │   ├── middleware/
 │   │   └── middleware.go           # All middleware (gzip, logging, rate limiting, etc.)
 │   ├── proxy/
@@ -54,6 +59,57 @@ All configuration is managed through environment variables with sensible default
 - **`RETRY_ATTEMPTS`**: Number of retry attempts for idempotent requests (default: `3`)
 - **`RETRY_BACKOFF`**: Initial backoff delay (default: `150ms`)
 - **`RETRY_MAX_BACKOFF`**: Maximum backoff delay (default: `1500ms`)
+
+### Logging Configuration
+- **`LOG_LEVEL`**: Log level - `DEBUG`, `INFO`, `WARN`, or `ERROR` (default: `INFO`)
+- **`LOG_FORMAT`**: Output format - `json` or `text` (default: `json`)
+
+## Structured Logging
+
+Canary uses Go's built-in `log/slog` package for production-grade structured logging with full observability.
+
+### Log Levels
+
+- **DEBUG**: Detailed diagnostic information (includes 302 redirects)
+- **INFO**: General informational messages (request started/completed)
+- **WARN**: Warning conditions (rate limits, 4xx errors, retries)
+- **ERROR**: Error conditions (5xx errors, panics, proxy failures)
+
+### Automatic Request Tracing
+
+Every request is automatically assigned a unique request ID (UUID) that's:
+- Generated if not provided in the `X-Request-ID` header
+- Returned in the response `X-Request-ID` header
+- Included in all log entries for that request
+- Used to correlate logs across retries and middleware
+
+### Structured Log Output
+
+Example JSON logs:
+
+```json
+{"time":"2025-12-15T10:30:45Z","level":"INFO","msg":"gateway_starting","port":"80","log_level":"INFO","log_format":"json"}
+{"time":"2025-12-15T10:31:12Z","level":"INFO","msg":"request_started","request_id":"f47ac10b-58cc-4372-a567-0e02b2c3d479","method":"GET","path":"/api/auth/login","client_ip":"10.0.0.5","user_agent":"Mozilla/5.0"}
+{"time":"2025-12-15T10:31:12Z","level":"INFO","msg":"request_completed","request_id":"f47ac10b-58cc-4372-a567-0e02b2c3d479","method":"GET","path":"/api/auth/login","status":200,"duration_ms":45,"bytes":1024}
+{"time":"2025-12-15T10:31:15Z","level":"WARN","msg":"rate_limit_exceeded","request_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890","type":"per-ip","client_ip":"10.0.0.8","method":"POST","path":"/api/auth/signup"}
+{"time":"2025-12-15T10:31:18Z","level":"WARN","msg":"proxy_retry","request_id":"b2c3d4e5-f6a7-8901-bcde-f12345678901","upstream":"exampleservice1.com","method":"GET","path":"/api/auth/user","attempt":2,"max_attempts":3,"error":"dial tcp: connection refused"}
+{"time":"2025-12-15T10:31:20Z","level":"ERROR","msg":"panic_recovered","request_id":"c3d4e5f6-a7b8-9012-cdef-123456789012","panic":"runtime error: index out of range","stack":"goroutine 42 [running]:\n...","method":"GET","path":"/api/data"}
+```
+
+### Log Events
+
+| Event | Level | Fields |
+|-------|-------|--------|
+| `gateway_starting` | INFO | port, log_level, log_format |
+| `gateway_listening` | INFO | port, auth_service, onboarding_service |
+| `request_started` | INFO | request_id, method, path, client_ip, user_agent |
+| `request_completed` | INFO/WARN/ERROR | request_id, method, path, status, duration_ms, bytes |
+| `rate_limit_exceeded` | WARN | request_id, type, client_ip, method, path |
+| `proxy_retry` | WARN | request_id, upstream, method, path, attempt, max_attempts, error |
+| `proxy_retry_5xx` | WARN | request_id, upstream, method, path, status, attempt, max_attempts |
+| `proxy_error` | ERROR | request_id, upstream, method, path, error |
+| `panic_recovered` | ERROR | request_id, panic, stack, method, path |
+
 
 ## Adding New Endpoints
 
@@ -206,21 +262,78 @@ handler := middleware.WithRecover(
 ### Customize Middleware
 Edit `internal/middleware/middleware.go` to modify existing middleware behavior (logging format, gzip settings, etc.).
 
+## Monitoring & Observability
+
+### Request Tracing
+
+Each request receives a unique ID that can be used to trace it through your entire system:
+
+```bash
+# Client sends request with custom ID
+curl -H "X-Request-ID: custom-trace-123" https://api.example.com/api/auth/login
+
+# Gateway logs all events with this ID
+# Response includes the same ID
+```
+
+### Performance Metrics
+
+All request completion logs include:
+- **duration_ms**: Request processing time
+- **bytes**: Response size
+- **status**: HTTP status code
+
+Use these for SLA monitoring and performance analysis.
+
+### Error Debugging
+
+When issues occur, logs include full context:
+- **Retries**: See each retry attempt with upstream and error details
+- **Rate Limits**: Identify which clients are hitting limits
+- **Panics**: Full stack traces for debugging crashes
+- **Proxy Errors**: Connection failures with upstream context
+
+### Example Queries
+
+Find slow requests:
+```json
+{"level":"INFO","msg":"request_completed","duration_ms":{"$gt":1000}}
+```
+
+Track retry patterns:
+```json
+{"level":"WARN","msg":"proxy_retry","upstream":"exampleservice1.com"}
+```
+
+Monitor rate limit violations by IP:
+```json
+{"level":"WARN","msg":"rate_limit_exceeded","type":"per-ip"}
+```
+
 ## Request Flow
 
-1. **Recovery**: Catches panics and prevents server crashes
-2. **Logging**: Logs request method, path, status code, and duration
-3. **Gzip**: Compresses responses if client supports it
-4. **Throttling**: Limits concurrent requests
-5. **Rate Limiting**: Enforces global and per-IP rate limits
-6. **Routing**: Determines which upstream service to proxy to
-7. **Proxy**: Forwards request with proper headers and retry logic
+1. **Recovery**: Catches panics and prevents server crashes (logs stack traces)
+2. **Request ID**: Assigns unique UUID to each request for tracing
+3. **Logging**: Logs request start with context (method, path, client IP, user agent)
+4. **Gzip**: Compresses responses if client supports it
+5. **Throttling**: Limits concurrent requests
+6. **Rate Limiting**: Enforces global and per-IP rate limits (logs violations)
+7. **Routing**: Determines which upstream service to proxy to
+8. **Proxy**: Forwards request with proper headers and retry logic (logs retries)
+9. **Logging**: Logs request completion with status, duration, and bytes transferred
 
 ## Development
 
 ### Running Locally
 ```bash
+# Default settings (INFO level, JSON format)
 go run apig.go
+
+# With custom log settings
+LOG_LEVEL=DEBUG LOG_FORMAT=text go run apig.go
+
+# Production settings
+LOG_LEVEL=WARN LOG_FORMAT=json go run apig.go
 ```
 
 ### Building
@@ -231,7 +344,10 @@ go build -o gateway apig.go
 ### Docker
 ```bash
 docker build -t api-gateway .
-docker run -p 80:80 api-gateway
+docker run -p 80:80 \
+  -e LOG_LEVEL=INFO \
+  -e LOG_FORMAT=json \
+  api-gateway
 ```
 
 ## Features in Detail

@@ -4,12 +4,17 @@ import (
 	"compress/gzip"
 	"context"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
+
+	"apigateway/internal/logger"
+
+	"github.com/google/uuid"
 )
 
 // ---------------- Gzip Compression ----------------
@@ -52,27 +57,83 @@ func (w *gzipResponseWriter) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
+// ---------------- Request ID ----------------
+
+type contextKey string
+
+const requestIDKey contextKey = "request_id"
+
+// WithRequestID adds a request ID to each request
+func WithRequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqID := r.Header.Get("X-Request-ID")
+		if reqID == "" {
+			reqID = uuid.New().String()
+		}
+		ctx := context.WithValue(r.Context(), requestIDKey, reqID)
+		w.Header().Set("X-Request-ID", reqID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// GetRequestID extracts the request ID from context
+func GetRequestID(r *http.Request) string {
+	if reqID, ok := r.Context().Value(requestIDKey).(string); ok {
+		return reqID
+	}
+	return ""
+}
+
 // ---------------- Logging ----------------
 
-// WithLogging logs HTTP requests and responses
+// WithLogging logs HTTP requests and responses with structured logging
 func WithLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		lw := &loggingResponseWriter{ResponseWriter: w, status: 200}
+
+		// Log request started
+		logger.Log.Info("request_started",
+			slog.String("request_id", GetRequestID(r)),
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.String("client_ip", ExtractClientIP(r)),
+			slog.String("user_agent", r.UserAgent()),
+		)
+
 		next.ServeHTTP(lw, r)
 
-		// Skip logging for 302 redirects to reduce probe noise
-		if lw.status == http.StatusFound {
-			return
+		duration := time.Since(start)
+
+		// Determine log level based on status code
+		logLevel := slog.LevelInfo
+		if lw.status >= 500 {
+			logLevel = slog.LevelError
+		} else if lw.status >= 400 {
+			logLevel = slog.LevelWarn
 		}
 
-		log.Printf("%s %s -> %d (%s)", r.Method, r.URL.Path, lw.status, time.Since(start).Truncate(time.Millisecond))
+		// Skip logging 302 redirects at debug level only (reduces probe noise)
+		if lw.status == http.StatusFound {
+			logLevel = slog.LevelDebug
+		}
+
+		// Log request completed
+		logger.Log.Log(r.Context(), logLevel, "request_completed",
+			slog.String("request_id", GetRequestID(r)),
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.Int("status", lw.status),
+			slog.Duration("duration_ms", duration),
+			slog.Int("bytes", lw.bytes),
+		)
 	})
 }
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
 	status int
+	bytes  int
 }
 
 func (lw *loggingResponseWriter) WriteHeader(code int) {
@@ -80,14 +141,26 @@ func (lw *loggingResponseWriter) WriteHeader(code int) {
 	lw.ResponseWriter.WriteHeader(code)
 }
 
+func (lw *loggingResponseWriter) Write(b []byte) (int, error) {
+	n, err := lw.ResponseWriter.Write(b)
+	lw.bytes += n
+	return n, err
+}
+
 // ---------------- Panic Recovery ----------------
 
-// WithRecover recovers from panics and returns 500 errors
+// WithRecover recovers from panics and returns 500 errors with stack traces
 func WithRecover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if v := recover(); v != nil {
-				log.Printf("panic: %v", v)
+				logger.Log.Error("panic_recovered",
+					slog.String("request_id", GetRequestID(r)),
+					slog.Any("panic", v),
+					slog.String("stack", string(debug.Stack())),
+					slog.String("method", r.Method),
+					slog.String("path", r.URL.Path),
+				)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 		}()
@@ -257,20 +330,34 @@ func (p *PerKeyTokenBucket) cleanupLoop() {
 func WithRateLimit(global *TokenBucket, perIP *PerKeyTokenBucket, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		now := time.Now()
+		ip := ExtractClientIP(r)
+		if ip == "" {
+			ip = "unknown"
+		}
 
 		// Global limit first (protects upstream)
 		if !global.allow(now) {
+			logger.Log.Warn("rate_limit_exceeded",
+				slog.String("request_id", GetRequestID(r)),
+				slog.String("type", "global"),
+				slog.String("client_ip", ip),
+				slog.String("method", r.Method),
+				slog.String("path", r.URL.Path),
+			)
 			w.Header().Set("Retry-After", "1")
 			http.Error(w, "rate limit exceeded (global)", http.StatusTooManyRequests)
 			return
 		}
 
 		// Per-IP limit
-		ip := ExtractClientIP(r)
-		if ip == "" {
-			ip = "unknown"
-		}
 		if !perIP.allow(ip, now) {
+			logger.Log.Warn("rate_limit_exceeded",
+				slog.String("request_id", GetRequestID(r)),
+				slog.String("type", "per-ip"),
+				slog.String("client_ip", ip),
+				slog.String("method", r.Method),
+				slog.String("path", r.URL.Path),
+			)
 			w.Header().Set("Retry-After", "1")
 			http.Error(w, "rate limit exceeded (per-ip)", http.StatusTooManyRequests)
 			return

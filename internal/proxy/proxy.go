@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"io"
-	"log"
+	"log/slog"
 	"math"
 	"net"
 	"net/http"
@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"time"
 
+	"apigateway/internal/logger"
 	"apigateway/internal/middleware"
 )
 
@@ -95,7 +96,13 @@ func NewReverseProxy(target *url.URL, cfg Config) *httputil.ReverseProxy {
 		Director:  director,
 		Transport: retrying,
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, e error) {
-			log.Printf("proxy error: %v", e)
+			logger.Log.Error("proxy_error",
+				slog.String("request_id", middleware.GetRequestID(r)),
+				slog.String("upstream", target.Host),
+				slog.String("method", r.Method),
+				slog.String("path", r.URL.Path),
+				slog.String("error", e.Error()),
+			)
 			http.Error(w, "bad gateway", http.StatusBadGateway)
 		},
 		ModifyResponse: func(resp *http.Response) error {
@@ -156,12 +163,30 @@ func (rt *retryingRoundTripper) RoundTrip(req *http.Request) (*http.Response, er
 			if !canRetry || i == attempts-1 {
 				return nil, err
 			}
+			logger.Log.Warn("proxy_retry",
+				slog.String("request_id", middleware.GetRequestID(req)),
+				slog.String("upstream", req.URL.Host),
+				slog.String("method", req.Method),
+				slog.String("path", req.URL.Path),
+				slog.Int("attempt", i+1),
+				slog.Int("max_attempts", attempts),
+				slog.String("error", err.Error()),
+			)
 			sleepBackoff(req.Context(), rt.baseDelay, rt.maxDelay, i)
 			continue
 		}
 
 		// If upstream returns 5xx, retry for idempotent requests
 		if resp.StatusCode >= 500 && resp.StatusCode <= 599 && canRetry && i < attempts-1 {
+			logger.Log.Warn("proxy_retry_5xx",
+				slog.String("request_id", middleware.GetRequestID(req)),
+				slog.String("upstream", req.URL.Host),
+				slog.String("method", req.Method),
+				slog.String("path", req.URL.Path),
+				slog.Int("status", resp.StatusCode),
+				slog.Int("attempt", i+1),
+				slog.Int("max_attempts", attempts),
+			)
 			// Must close body before retrying to avoid leaks
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()

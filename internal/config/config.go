@@ -14,7 +14,14 @@ type Config struct {
 	Throttle   ThrottleConfig
 	RateLimit  RateLimitConfig
 	Retry      RetryConfig
+	Logging    LoggingConfig
 	LimiterTTL time.Duration
+}
+
+// LoggingConfig holds logging settings
+type LoggingConfig struct {
+	Level  string // DEBUG, INFO, WARN, ERROR
+	Format string // json or text
 }
 
 // ServerConfig holds HTTP server settings
@@ -79,6 +86,10 @@ func Load() (*Config, error) {
 			Attempts:    mustInt(env("RETRY_ATTEMPTS", "3")),
 			BaseBackoff: mustDuration(env("RETRY_BACKOFF", "150ms")),
 			MaxBackoff:  mustDuration(env("RETRY_MAX_BACKOFF", "1500ms")),
+		},
+		Logging: LoggingConfig{
+			Level:  env("LOG_LEVEL", "INFO"),
+			Format: env("LOG_FORMAT", "json"),
 		},
 		LimiterTTL: mustDuration(env("LIMITER_TTL", "10m")),
 	}, nil
